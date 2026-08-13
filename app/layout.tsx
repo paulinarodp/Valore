@@ -13,8 +13,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Valore | Leggi meglio la tua offerta",
-  description: "Uno strumento essenziale per capire RAL, bonus, benefit e posizione di mercato di un'offerta di lavoro in Italia.",
+  title: "Dalla RAL al netto | Calcolatore 2026",
+  description:
+    "Calcolo della retribuzione netta annuale a partire dalla RAL, con il dettaglio di tutte le voci trattenute dal lordo. Dipendente privato a Milano, anno d'imposta 2026.",
+  icons: { icon: "/favicon.svg" },
 };
 
 export default function RootLayout({
@@ -24,9 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="it">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {children}
       </body>
     </html>
