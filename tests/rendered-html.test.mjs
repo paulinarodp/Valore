@@ -28,7 +28,7 @@ test("the page ships a working calculator in its server-rendered HTML", async ()
   assert.match(html, /<select[^>]+id="location"/i);
   assert.match(html, /Residenza fiscale/i);
   assert.match(html, /Mensilità/i);
-  assert.match(html, /Figli a carico/i);
+  assert.match(html, /Figli fiscalmente a carico ai fini della soglia fringe benefit/i);
   // Il flusso richiesto dalla traccia ha un comando esplicito.
   assert.match(html, /<button[^>]+type="submit"[^>]+class="calculate-button"/i);
   assert.match(html, /Calcola/i);
@@ -149,11 +149,13 @@ test("every supported location is selectable and compared on the page", async ()
   assert.match(html, /1\.423/);
 });
 
-test("locations without published 2026 regional rates are excluded, not approximated", async () => {
+test("the five locations are presented as a representative sample", async () => {
   const html = await (await render()).text();
 
   assert.doesNotMatch(html, /<option[^>]*>(Roma|Napoli|Bologna|Genova)<\/option>/);
-  assert.match(html, /Roma, Napoli, Bologna, Genova/);
+  assert.match(html, /Cinque località rappresentative/i);
+  assert.match(html, /campione di cinque località rappresentative/i);
+  assert.doesNotMatch(html, /regioni non hanno pubblicato le aliquote 2026/i);
 });
 
 test("the employer side of the same salary is shown", async () => {
@@ -162,6 +164,7 @@ test("the employer side of the same salary is shown", async () => {
   assert.match(html, /Quanto costa all&#x27;azienda|Quanto costa all'azienda/i);
   assert.match(html, /Costo aziendale/i);
   assert.match(html, /Cuneo fiscale e contributivo/i);
+  assert.match(html, /TFR escluso/i);
   assert.match(html, /TFR accantonato/i);
   // RAL 46.000 + 30% contributi datore + 7,41% TFR = 63.209 €.
   assert.match(html, /63\.209/);
@@ -176,6 +179,10 @@ test("the three compensation levers are compared with their constraints", async 
   // L'obiettivo è un input, non una costante cablata nella pagina.
   assert.match(html, /<input[^>]+id="target-net"/i);
   assert.match(html, /Obiettivo netto/i);
+  assert.match(html, /<input[^>]+id="previous-year-income"/i);
+  assert.match(html, /Reddito da lavoro dipendente anno precedente/i);
+  assert.match(html, /eleggibilità da verificare/i);
+  assert.match(html, /non usa la RAL corrente|anno precedente/i);
   // Con obiettivo 2.000 € la soglia base dei fringe benefit si vede davvero.
   // React separa testo ed espressioni con commenti, quindi la regex li tollera.
   assert.match(html, /su (<!-- -->)?2\.000\s€/);
@@ -190,4 +197,6 @@ test("the three compensation levers are compared with their constraints", async 
   assert.match(html, /5\.000\s€/);
   assert.match(html, /superata la soglia anche di un euro/i);
   assert.match(html, /beni e servizi, non denaro/i);
+  assert.match(html, /usato solo per determinare la soglia[^<]*fringe benefit/i);
+  assert.doesNotMatch(html, /I figli a carico non cambiano il netto/i);
 });

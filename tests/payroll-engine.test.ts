@@ -329,10 +329,16 @@ test("employer cost adds contributions and TFR on top of the gross salary", () =
   assert.equal(result.tfr, 3_408.6);
   assert.equal(result.employerCost, 63_208.6);
 
-  // Il cuneo è la quota del costo aziendale che non arriva netta.
+  // Il cuneo contiene solo imposte e contributi: il TFR è retribuzione differita.
+  const expectedWedge = result.employerContributions + result.contributions + result.totalTaxes;
+  assert.equal(result.taxAndContributionWedge, expectedWedge);
   assert.equal(
     result.taxWedgeRate,
-    Math.round(((result.employerCost - result.annualNet) / result.employerCost) * 10_000) / 100,
+    Math.round((expectedWedge / result.employerCost) * 10_000) / 100,
+  );
+  assert.equal(
+    result.annualNet + result.taxAndContributionWedge + result.tfr,
+    result.employerCost,
   );
   assert.ok(result.taxWedgeRate > 40 && result.taxWedgeRate < 60);
 });
@@ -356,12 +362,44 @@ test("the gross-up search finds the RAL increase that delivers the target net", 
     );
     // Il netto dichiarato deve coincidere con quello misurato.
     assert.ok(Math.abs(found!.netDelivered - delivered) < 0.02);
+    if (found!.increase >= 0.01) {
+      const previousCent = calculateSalary(
+        { ...base, annualGross: 46_000 + found!.increase - 0.01 },
+        rules,
+      ).annualNet - baseNet;
+      assert.ok(previousCent < target, "deve restituire il primo aumento utile");
+    }
+  }
+});
+
+test("the gross-up finds the first valid result across known net-salary cliffs", () => {
+  for (const [annualGross, targetNet] of [[25_300, 100], [38_500, 100]] as const) {
+    const base = { annualGross, payPeriods: 13 as const, locationId: "milano" };
+    const baseNet = at(annualGross).annualNet;
+    const found = grossUpForNet(base, baseNet, targetNet, rules);
+    assert.ok(found, `soluzione attesa da RAL ${annualGross}`);
+
+    const delivered = calculateSalary(
+      { ...base, annualGross: annualGross + found!.increase },
+      rules,
+    ).annualNet - baseNet;
+    const previousCent = calculateSalary(
+      { ...base, annualGross: annualGross + found!.increase - 0.01 },
+      rules,
+    ).annualNet - baseNet;
+
+    assert.ok(delivered >= targetNet, `consegna ${delivered} da RAL ${annualGross}`);
+    assert.ok(previousCent < targetNet, `non salta una soluzione più bassa da RAL ${annualGross}`);
   }
 });
 
 test("the levers change with the case, they are not fixed numbers", () => {
   const levers = (gross: number) =>
-    compareCompensationLevers(at(gross), rules, { targetNet: 2_000, hasDependentChildren: false });
+    compareCompensationLevers(at(gross), rules, {
+      targetNet: 2_000,
+      hasDependentChildren: false,
+      previousYearEmployeeIncome: 46_000,
+    });
   const costOf = (gross: number, id: string) =>
     levers(gross).find((lever) => lever.id === id)!.employerCost;
 
@@ -374,24 +412,36 @@ test("the levers change with the case, they are not fixed numbers", () => {
   assert.ok(costOf(70_000, "bonus") > costOf(46_000, "bonus"));
 });
 
-test("the performance bonus is refused above the eligibility income cap", () => {
+test("performance-bonus eligibility uses previous-year employee income, never current RAL", () => {
   const cap = rules.levers.performanceBonus.eligibilityIncomeCap;
-  const eligible = compareCompensationLevers(at(cap), rules, {
+  const unknown = compareCompensationLevers(at(46_000), rules, {
     targetNet: 2_000,
     hasDependentChildren: false,
+    previousYearEmployeeIncome: null,
   }).find((lever) => lever.id === "bonus")!;
-  const notEligible = compareCompensationLevers(at(cap + 1_000), rules, {
+  const eligibleDespiteCurrentRal = compareCompensationLevers(at(90_000), rules, {
     targetNet: 2_000,
     hasDependentChildren: false,
+    previousYearEmployeeIncome: cap,
+  }).find((lever) => lever.id === "bonus")!;
+  const notEligibleDespiteCurrentRal = compareCompensationLevers(at(46_000), rules, {
+    targetNet: 2_000,
+    hasDependentChildren: false,
+    previousYearEmployeeIncome: cap + 1,
   }).find((lever) => lever.id === "bonus")!;
 
-  assert.equal(eligible.available, true);
-  assert.ok(eligible.employerCost > 0);
+  assert.equal(unknown.available, false);
+  assert.equal(unknown.verificationRequired, true);
+  assert.equal(unknown.employerCost, 0);
+  assert.match(unknown.unavailableReason ?? "", /anno precedente/i);
+
+  assert.equal(eligibleDespiteCurrentRal.available, true);
+  assert.ok(eligibleDespiteCurrentRal.employerCost > 0);
 
   // Sopra la soglia l'agevolazione non esiste: non va mostrata come se esistesse.
-  assert.equal(notEligible.available, false);
-  assert.equal(notEligible.employerCost, 0);
-  assert.match(notEligible.unavailableReason ?? "", /imposta sostitutiva non spetta/i);
+  assert.equal(notEligibleDespiteCurrentRal.available, false);
+  assert.equal(notEligibleDespiteCurrentRal.employerCost, 0);
+  assert.match(notEligibleDespiteCurrentRal.unavailableReason ?? "", /imposta sostitutiva non spetta/i);
 });
 
 test("no lever ever claims to deliver more net than it costs", () => {
@@ -399,6 +449,7 @@ test("no lever ever claims to deliver more net than it costs", () => {
     for (const lever of compareCompensationLevers(at(gross), rules, {
       targetNet: 2_000,
       hasDependentChildren: false,
+      previousYearEmployeeIncome: 46_000,
     })) {
       if (!lever.available) {
         assert.equal(lever.efficiency, 0, `${lever.id} non disponibile a ${gross}`);
@@ -419,16 +470,18 @@ test("near the RAL ceiling the salary lever reports what it can actually deliver
   const salary = compareCompensationLevers(at(199_000), rules, {
     targetNet: 2_000,
     hasDependentChildren: false,
+    previousYearEmployeeIncome: 46_000,
   }).find((lever) => lever.id === "salary")!;
 
-  assert.ok(salary.netDelivered < 2_000, "non può consegnare l'obiettivo");
-  assert.ok(salary.netDelivered > 0);
-  assert.ok(salary.efficiency <= 100);
+  assert.equal(salary.available, false);
+  assert.equal(salary.netDelivered, 0);
+  assert.match(salary.unavailableReason ?? "", /non è raggiungibile/i);
 
   // Al tetto esatto la leva sparisce del tutto, con la sua ragione.
   const atCeiling = compareCompensationLevers(at(MAX_RAL), rules, {
     targetNet: 2_000,
     hasDependentChildren: false,
+    previousYearEmployeeIncome: 46_000,
   }).find((lever) => lever.id === "salary")!;
   assert.equal(atCeiling.available, false);
   assert.match(atCeiling.unavailableReason ?? "", /tetto supportato/i);
@@ -438,6 +491,7 @@ test("fringe benefit is the most efficient lever, salary the least", () => {
   const levers = compareCompensationLevers(at(46_000), rules, {
     targetNet: 1_000,
     hasDependentChildren: false,
+    previousYearEmployeeIncome: 46_000,
   });
   const byId = new Map(levers.map((lever) => [lever.id, lever]));
 
@@ -463,10 +517,12 @@ test("lever caps are respected: fringe benefit stops at its threshold", () => {
   const withoutChildren = compareCompensationLevers(result, rules, {
     targetNet: 3_000,
     hasDependentChildren: false,
+    previousYearEmployeeIncome: 46_000,
   }).find((lever) => lever.id === "fringe")!;
   const withChildren = compareCompensationLevers(result, rules, {
     targetNet: 3_000,
     hasDependentChildren: true,
+    previousYearEmployeeIncome: 46_000,
   }).find((lever) => lever.id === "fringe")!;
 
   // Oltre la soglia la leva non può consegnare di più, e il tetto raddoppia con figli.
@@ -478,6 +534,7 @@ test("the performance bonus keeps contributions and only replaces income tax", (
   const lever = compareCompensationLevers(at(46_000), rules, {
     targetNet: 1_000,
     hasDependentChildren: false,
+    previousYearEmployeeIncome: 46_000,
   }).find((item) => item.id === "bonus")!;
 
   // Netto = (lordo − contributi) × (1 − 1%): i contributi restano dovuti.

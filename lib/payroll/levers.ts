@@ -11,6 +11,8 @@ export type CompensationLever = {
   available: boolean;
   /** Perché non è utilizzabile: mostrato al posto dei numeri. */
   unavailableReason?: string;
+  /** Il numero è omesso perché manca un input necessario per stabilire l'eleggibilità. */
+  verificationRequired?: boolean;
   /** Quanto deve spendere l'azienda per consegnare `netDelivered`. */
   employerCost: number;
   /** Netto effettivamente consegnato: misurato, non assunto. Può fermarsi sotto l'obiettivo. */
@@ -26,8 +28,10 @@ export type CompensationLever = {
  * Trova l'aumento di RAL che consegna `targetNet` euro netti in più.
  *
  * Non è invertibile in forma chiusa: scaglioni, detrazioni decrescenti e soglie
- * comunali rendono la funzione netto(RAL) continua ma a tratti. Una ricerca
- * binaria sul motore vero è esatta al centesimo e non duplica la logica fiscale.
+ * comunali rendono la funzione netto(RAL) non monotona: prima si avanza per
+ * piccoli intervalli fino al primo attraversamento dell'obiettivo; solo quel
+ * tratto viene poi scandito al centesimo. Così un salto successivo non può
+ * spingere la ricerca verso una soluzione più alta del necessario.
  *
  * Restituisce anche il netto davvero consegnato, misurato richiamando il motore:
  * vicino al tetto di RAL supportato l'obiettivo può essere irraggiungibile, e in
@@ -45,17 +49,31 @@ export function grossUpForNet(
   const netAt = (increase: number) =>
     calculateSalary({ ...base, annualGross: base.annualGross + increase }, ruleset).annualNet - baseNet;
 
-  let low = 0;
-  let high = Math.min(targetNet * 4, headroom);
+  const scanStep = 25;
+  let previousIncrease = 0;
+  let previousNet = 0;
 
-  for (let i = 0; i < 60; i += 1) {
-    const mid = (low + high) / 2;
-    if (netAt(mid) < targetNet) low = mid;
-    else high = mid;
+  for (let high = Math.min(scanStep, headroom);; high = Math.min(high + scanStep, headroom)) {
+    const highNet = netAt(high);
+
+    // Un calo segnala un salto dentro l'intervallo: va controllato anche se
+    // l'estremo destro non raggiunge l'obiettivo.
+    if (highNet >= targetNet || highNet < previousNet) {
+      const fromCent = Math.floor(previousIncrease * 100) + 1;
+      const toCent = Math.round(high * 100);
+      for (let cents = fromCent; cents <= toCent; cents += 1) {
+        const increase = cents / 100;
+        const netDelivered = roundMoney(netAt(increase));
+        if (netDelivered >= targetNet) return { increase, netDelivered };
+      }
+    }
+
+    if (high >= headroom) break;
+    previousIncrease = high;
+    previousNet = highNet;
   }
 
-  const increase = roundMoney(high);
-  return { increase, netDelivered: roundMoney(netAt(increase)) };
+  return null;
 }
 
 /**
@@ -99,14 +117,19 @@ function grossUpBonusForNet(
  * È la domanda che conta davvero per un'azienda: non "quanto prende il
  * dipendente", ma "quanto mi costa fargli arrivare duemila euro". Le tre leve
  * hanno la stessa destinazione, costi molto diversi, e non sono sempre tutte
- * disponibili: il risultato cambia con la RAL, con la località e con i figli.
+ * disponibili: il risultato cambia con la RAL, la località, la soglia fringe
+ * benefit e il reddito da lavoro dipendente dell'anno precedente.
  */
 export function compareCompensationLevers(
   result: SalaryResult,
   ruleset: PayrollRuleset,
-  options: { targetNet: number; hasDependentChildren: boolean },
+  options: {
+    targetNet: number;
+    hasDependentChildren: boolean;
+    previousYearEmployeeIncome: number | null;
+  },
 ): CompensationLever[] {
-  const { targetNet, hasDependentChildren } = options;
+  const { targetNet, hasDependentChildren, previousYearEmployeeIncome } = options;
   const { performanceBonus, fringeBenefit } = ruleset.levers;
   // Su retribuzione ordinaria e premi l'azienda paga contributi e accantona TFR.
   const employerLoad = 1 + ruleset.employer.contributionRate + ruleset.employer.tfrRate;
@@ -135,7 +158,7 @@ export function compareCompensationLevers(
       id: "salary",
       label: "Aumento di RAL",
       available: false,
-      unavailableReason: `La RAL è già al tetto supportato dal prototipo, ${shortMoney(MAX_RAL)}.`,
+      unavailableReason: `L'obiettivo non è raggiungibile prima del tetto supportato dal prototipo, ${shortMoney(MAX_RAL)} di RAL.`,
       employerCost: 0,
       netDelivered: 0,
       efficiency: 0,
@@ -144,16 +167,29 @@ export function compareCompensationLevers(
     };
 
   // 2. Premio di risultato: i contributi restano, l'IRPEF diventa l'1%.
-  const bonusConstraint = `Richiede un accordo collettivo di secondo livello, vale fino a ${shortMoney(performanceBonus.annualCap)} l'anno e solo con reddito da lavoro dipendente sotto ${shortMoney(performanceBonus.eligibilityIncomeCap)} nell'anno precedente.`;
+  const bonusConstraint = `Richiede un accordo collettivo di secondo livello, vale fino a ${shortMoney(performanceBonus.annualCap)} l'anno e solo con reddito da lavoro dipendente non superiore a ${shortMoney(performanceBonus.eligibilityIncomeCap)} nell'anno precedente.`;
   let bonus: CompensationLever;
 
-  if (result.annualGross > performanceBonus.eligibilityIncomeCap) {
-    // Sopra la soglia il premio non è agevolato: mostrarlo sarebbe un'agevolazione inesistente.
+  if (previousYearEmployeeIncome === null) {
     bonus = {
       id: "bonus",
       label: "Premio di risultato",
       available: false,
-      unavailableReason: `Con una RAL sopra ${shortMoney(performanceBonus.eligibilityIncomeCap)} l'imposta sostitutiva non spetta: il premio verrebbe tassato come normale retribuzione.`,
+      verificationRequired: true,
+      unavailableReason: "Inserisci il reddito da lavoro dipendente dell'anno precedente per verificare se l'imposta sostitutiva è applicabile.",
+      employerCost: 0,
+      netDelivered: 0,
+      efficiency: 0,
+      constraint: bonusConstraint,
+      source: performanceBonus.source,
+    };
+  } else if (previousYearEmployeeIncome > performanceBonus.eligibilityIncomeCap) {
+    // La soglia riguarda l'anno precedente, mai la RAL corrente usata nel calcolo.
+    bonus = {
+      id: "bonus",
+      label: "Premio di risultato",
+      available: false,
+      unavailableReason: `Con un reddito da lavoro dipendente dell'anno precedente sopra ${shortMoney(performanceBonus.eligibilityIncomeCap)} l'imposta sostitutiva non spetta.`,
       employerCost: 0,
       netDelivered: 0,
       efficiency: 0,

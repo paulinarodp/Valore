@@ -1016,6 +1016,15 @@ button {
   color: var(--muted);
 }
 
+.badge.warning {
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+}
+
+.previous-income-field {
+  width: min(290px, 100%);
+}
+
 .lever dl {
   display: grid;
   gap: var(--s-2);

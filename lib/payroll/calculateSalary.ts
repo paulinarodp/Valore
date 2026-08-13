@@ -185,6 +185,9 @@ export function calculateSalary(
   const employerContributions = roundMoney(annualGross * ruleset.employer.contributionRate);
   const tfr = roundMoney(annualGross * ruleset.employer.tfrRate);
   const employerCost = roundMoney(annualGross + employerContributions + tfr);
+  const taxAndContributionWedge = roundMoney(
+    employerContributions + contributions.amount + totalTaxes,
+  );
 
   return {
     rulesetId: ruleset.id,
@@ -215,9 +218,9 @@ export function calculateSalary(
     employerContributions,
     tfr,
     employerCost,
-    // Il TFR resta al dipendente, ma differito: nel cuneo dell'anno non entra
-    // come netto disponibile, e va letto per quello che è.
-    taxWedgeRate: roundMoney(((employerCost - annualNet) / employerCost) * 100),
+    taxAndContributionWedge,
+    // Il TFR resta al dipendente come retribuzione differita: non è cuneo.
+    taxWedgeRate: roundMoney((taxAndContributionWedge / employerCost) * 100),
 
     steps,
   };

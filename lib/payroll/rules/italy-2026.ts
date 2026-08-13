@@ -25,10 +25,12 @@ const mefMunicipality = (province: string, cadastralCode: string, municipality: 
 /**
  * Località supportate.
  *
- * Ne compaiono cinque e non venti: sono quelle per cui il portale MEF pubblica
- * le aliquote regionali 2026. Per la componente comunale il portale non espone
- * ancora dati 2026: il prototipo usa la delibera 2025 come assunzione esplicita,
- * versionata e visibile all'utente, mai come fallback silenzioso.
+ * Ne compaiono cinque e non venti per testare un campione rappresentativo di
+ * strutture locali: regioni progressive e flat, comuni ad aliquota unica e per
+ * scaglioni, soglie di esenzione differenti. È una scelta di prodotto, non una
+ * dichiarazione sulla disponibilità dei dati delle altre regioni. Per la
+ * componente comunale il portale non espone ancora dati 2026 nelle località del
+ * campione: la delibera 2025 è un'assunzione esplicita, versionata e visibile.
  */
 const LOCATIONS: Location[] = [
   {

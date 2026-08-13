@@ -54,16 +54,13 @@ export default function Home() {
   const [appliedRal, setAppliedRal] = useState(DEFAULT_RAL);
   const [targetInput, setTargetInput] = useState(() => groupThousands(String(DEFAULT_TARGET_NET)));
   const [appliedTarget, setAppliedTarget] = useState(DEFAULT_TARGET_NET);
+  const [previousYearIncomeInput, setPreviousYearIncomeInput] = useState("");
 
   const parsedRal = parseRal(ralInput);
   const isValid = Number.isFinite(parsedRal) && parsedRal >= MIN_RAL && parsedRal <= MAX_RAL;
   const isOutOfRange = ralInput.trim() !== "" && !isValid;
 
-  /**
-   * Il calcolo è derivato dagli input, non salvato in stato: ogni modifica si
-   * riflette subito. Un valore incompleto o fuori intervallo non azzera la
-   * pagina, lascia in vista l'ultimo risultato valido con un avviso accanto.
-   */
+  /** Il risultato viene mostrato solo dopo la conferma esplicita con Calcola. */
   const result: SalaryResult = useMemo(
     () => calculateSalary({ annualGross: appliedRal, payPeriods, locationId }, ITALY_2026),
     [appliedRal, payPeriods, locationId],
@@ -236,6 +233,8 @@ export default function Home() {
             result={result}
             hasChildren={hasChildren}
             onChildrenChange={setHasChildren}
+            previousYearIncomeInput={previousYearIncomeInput}
+            onPreviousYearIncomeChange={setPreviousYearIncomeInput}
             targetNet={appliedTarget}
             targetInput={targetInput}
             onTargetChange={handleTarget}
@@ -392,7 +391,7 @@ function Ledger({ result }: { result: SalaryResult }) {
  */
 function EmployerCost({ result }: { result: SalaryResult }) {
   const share = (value: number) => `${(value / result.employerCost) * 100}%`;
-  const taxesAndContributions = result.employerCost - result.annualNet - result.tfr;
+  const netFromGross = result.annualNet - result.taxFreeBonus;
 
   return (
     <section className="card employer" aria-labelledby="employer-title">
@@ -417,25 +416,26 @@ function EmployerCost({ result }: { result: SalaryResult }) {
         <div className="figure">
           <span className="figure-label">Cuneo fiscale e contributivo</span>
           <strong>{percent(result.taxWedgeRate / 100)}</strong>
-          <span className="figure-note">del costo aziendale</span>
+          <span className="figure-note">del costo aziendale · TFR escluso</span>
         </div>
       </div>
 
-      <div className="bar wedge-bar" role="img" aria-label={`Su ${shortMoney(result.employerCost)} di costo aziendale, ${shortMoney(result.annualNet)} arrivano netti al dipendente`}>
-        <span className="seg net" style={{ width: share(result.annualNet) }} />
-        <span className="seg irpef" style={{ width: share(taxesAndContributions) }} />
+      <div className="bar wedge-bar" role="img" aria-label={`Su ${shortMoney(result.employerCost)} di costo aziendale, ${shortMoney(result.taxAndContributionWedge)} sono imposte e contributi e ${shortMoney(result.tfr)} sono TFR`}>
+        <span className="seg net" style={{ width: share(netFromGross) }} />
+        <span className="seg irpef" style={{ width: share(result.taxAndContributionWedge) }} />
         <span className="seg tfr" style={{ width: share(result.tfr) }} />
       </div>
       <ul className="legend">
-        <LegendItem tone="net" label="Netto in busta" value={result.annualNet} />
-        <LegendItem tone="irpef" label="Imposte e contributi" value={taxesAndContributions} />
+        <LegendItem tone="net" label="Netto dalla RAL" value={netFromGross} />
+        <LegendItem tone="irpef" label="Imposte e contributi" value={result.taxAndContributionWedge} />
         <LegendItem tone="tfr" label="TFR accantonato" value={result.tfr} />
       </ul>
 
       <p className="employer-note">
         Su ogni <strong>100 €</strong> spesi dall&apos;azienda ne arrivano netti{" "}
         <strong>{Math.round((result.annualNet / result.employerCost) * 100)} €</strong>. Il TFR
-        resta comunque del dipendente, ma differito. L&apos;INAIL è escluso: varia dallo 0,4% al 6%
+        resta del dipendente come retribuzione differita e non è incluso nel cuneo fiscale e
+        contributivo. L&apos;INAIL è escluso: varia dallo 0,4% al 6%
         secondo la lavorazione, e senza saperla ogni numero sarebbe inventato.
       </p>
     </section>
@@ -454,6 +454,8 @@ function CompensationLevers({
   result,
   hasChildren,
   onChildrenChange,
+  previousYearIncomeInput,
+  onPreviousYearIncomeChange,
   targetNet,
   targetInput,
   onTargetChange,
@@ -462,14 +464,24 @@ function CompensationLevers({
   result: SalaryResult;
   hasChildren: boolean;
   onChildrenChange: (value: boolean) => void;
+  previousYearIncomeInput: string;
+  onPreviousYearIncomeChange: (value: string) => void;
   targetNet: number;
   targetInput: string;
   onTargetChange: (value: string) => void;
   onTargetBlur: () => void;
 }) {
+  const parsedPreviousYearIncome = previousYearIncomeInput.trim() === ""
+    ? null
+    : parseRal(previousYearIncomeInput);
+  const previousYearEmployeeIncome = parsedPreviousYearIncome !== null
+    && Number.isFinite(parsedPreviousYearIncome)
+    ? parsedPreviousYearIncome
+    : null;
   const levers = compareCompensationLevers(result, ITALY_2026, {
     targetNet,
     hasDependentChildren: hasChildren,
+    previousYearEmployeeIncome,
   });
   // Da certe RAL un aumento fa scendere il netto: va detto prima, non dopo.
   const trap = findRaiseTrap(
@@ -498,7 +510,8 @@ function CompensationLevers({
             Dare {shortMoney(targetNet)} netti in più: le tre strade
           </h2>
           <p>
-            Stesso netto in tasca al dipendente, costo per l&apos;azienda molto diverso.
+            Stesso netto in tasca, usando il profilo contributivo standard del prototipo. Il costo
+            effettivo può variare per settore, CCNL e condizioni del premio.
           </p>
         </div>
         <div className="field target-field">
@@ -521,8 +534,35 @@ function CompensationLevers({
           </p>
         </div>
 
+        <div className="field previous-income-field">
+          <label htmlFor="previous-year-income">Reddito da lavoro dipendente anno precedente</label>
+          <div className="money-input compact">
+            <span aria-hidden="true">€</span>
+            <input
+              id="previous-year-income"
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="Non fornito"
+              value={previousYearIncomeInput}
+              onChange={(event) => onPreviousYearIncomeChange(event.target.value)}
+              onBlur={() => {
+                if (previousYearEmployeeIncome !== null) {
+                  onPreviousYearIncomeChange(groupThousands(String(previousYearEmployeeIncome)));
+                }
+              }}
+              aria-describedby="previous-year-income-help"
+            />
+          </div>
+          <p className="help" id="previous-year-income-help">
+            Serve solo per verificare il premio di risultato
+          </p>
+        </div>
+
         <div className="field">
-          <span className="label" id="children-label">Figli a carico</span>
+          <span className="label" id="children-label">
+            Figli fiscalmente a carico ai fini della soglia fringe benefit
+          </span>
           <div className="segmented" role="group" aria-labelledby="children-label">
             <button
               type="button"
@@ -570,7 +610,9 @@ function CompensationLevers({
             <header>
               <h3>{lever.label}</h3>
               {lever.id === best?.id ? <span className="badge">più efficiente</span> : null}
-              {lever.available ? null : <span className="badge muted">non disponibile</span>}
+              {lever.available ? null : lever.verificationRequired
+                ? <span className="badge warning">eleggibilità da verificare</span>
+                : <span className="badge muted">non disponibile</span>}
             </header>
 
             {lever.available ? (
@@ -624,9 +666,9 @@ function CompensationLevers({
       ) : null}
 
       <p className="scope-callout">
-        I figli a carico non cambiano il netto in busta: dal 2022 l&apos;assegno unico ha sostituito
-        le detrazioni per i figli sotto i 21 anni, e l&apos;assegno non è reddito imponibile. Qui
-        incidono solo sulla soglia esente dei fringe benefit.
+        Nel confronto delle leve il dato sui figli viene usato solo per determinare la soglia
+        esente dei fringe benefit. Il calcolo RAL → netto continua a utilizzare il caso standard
+        senza familiari a carico; gli altri effetti fiscali familiari restano fuori perimetro.
       </p>
     </section>
   );
@@ -673,8 +715,8 @@ function LocationComparison({
       <div className="card-header">
         <h2 id="comparison-title">Quanto pesa il comune di residenza</h2>
         <p>
-          Stessa RAL di {shortMoney(result.annualGross)} e stesse {result.payPeriods} mensilità,
-          nelle località supportate.
+          Cinque località rappresentative per confrontare strutture fiscali diverse, a parità di
+          RAL ({shortMoney(result.annualGross)}) e {result.payPeriods} mensilità.
         </p>
       </div>
 
@@ -811,7 +853,7 @@ const EXCLUDED = [
   "INAIL, che varia dallo 0,4% al 6% secondo la classe di rischio",
   "Anni parziali, part-time, più datori di lavoro",
   "Detrazioni regionali per figli a carico, previste da Piemonte e Puglia",
-  "Comuni le cui regioni non hanno pubblicato le aliquote 2026: Roma, Napoli, Bologna, Genova",
+  "Comuni e regioni oltre il campione di cinque località rappresentative",
   "Tempistiche reali delle ritenute: le addizionali si versano a rate nell'anno successivo",
 ];
 

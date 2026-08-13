@@ -161,9 +161,11 @@ export type SalaryResult = {
   tfr: number;
   /** RAL più contributi datore più TFR. */
   employerCost: number;
+  /** Imposte e contributi complessivi, con il TFR esplicitamente escluso. */
+  taxAndContributionWedge: number;
   /**
-   * Quota del costo aziendale che non arriva netta al dipendente: il cuneo
-   * fiscale e contributivo, in percentuale.
+   * Imposte e contributi complessivi in percentuale sul costo aziendale.
+   * Il TFR è retribuzione differita e non fa parte di questa metrica.
    */
   taxWedgeRate: number;
 
