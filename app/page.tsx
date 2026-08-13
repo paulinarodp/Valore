@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronDown, ExternalLink } from "lucide-react";
+import { BadgeEuro, ChevronDown, ExternalLink, ShieldCheck } from "lucide-react";
 
 import { calculateSalary } from "@/lib/payroll/calculateSalary.ts";
 import { compareCompensationLevers, findRaiseTrap } from "@/lib/payroll/levers.ts";
@@ -85,7 +85,14 @@ export default function Home() {
   return (
     <main className="page">
       <header className="masthead">
-        <div>
+        <div className="masthead-copy">
+          <div className="brand-lockup">
+            <span className="brand-mark" aria-hidden="true"><BadgeEuro size={21} /></span>
+            <span>
+              <strong>Valore</strong>
+              <small>Payroll intelligence</small>
+            </span>
+          </div>
           <h1>Dalla RAL al netto</h1>
           <p className="standfirst">
             Quanto resta in tasca a un dipendente, e quanto costa all&apos;azienda fargli
@@ -93,8 +100,11 @@ export default function Home() {
           </p>
         </div>
         <span className="year-badge">
-          Anno d&apos;imposta {ITALY_2026.taxYear}
-          <small>Regole {ITALY_2026.id}</small>
+          <ShieldCheck size={17} aria-hidden="true" />
+          <span>
+            Anno d&apos;imposta {ITALY_2026.taxYear}
+            <small>Regole verificate · {ITALY_2026.id}</small>
+          </span>
         </span>
       </header>
 
