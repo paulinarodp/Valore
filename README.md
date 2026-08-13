@@ -9,9 +9,9 @@ formula applicata e il link alla fonte.
 Poi la domanda che interessa a un'azienda: quanto costa quel netto, e qual è il modo meno caro di
 aumentarlo.
 
-Il risultato si aggiorna anche mentre si modificano gli input; il pulsante **Calcola** conferma
-esplicitamente il valore inserito e mantiene il flusso richiesto dalla traccia. Un valore
-incompleto mentre si scrive non azzera la pagina: resta l'ultimo risultato valido con l'avviso.
+Il risultato appare solo dopo aver premuto **Calcola**. Se RAL, residenza o mensilità cambiano,
+il risultato viene nascosto finché l'utente non conferma nuovamente gli input: nessun importo
+resta visibile mentre descrive dati diversi da quelli selezionati.
 
 ```bash
 npm install
@@ -205,9 +205,10 @@ più la regione del comune, il che è esattamente il contrario di come se ne par
 
 ## Il layout
 
-Quello che la traccia chiede resta sempre in vista, sopra tutto il resto: gli input e il
-risultato, cioè netto annuale, netto per mensilità e totale trattenute. Non sono dentro nessuna
-sezione, così cambiando vista non spariscono mai.
+Gli input richiesti dalla traccia restano subito in vista. Dopo **Calcola** compare sopra tutto il
+resto il risultato: netto annuale, netto per mensilità, imposte e contributi. Il risultato non è
+dentro una sezione, così cambiando vista non sparisce; viene nascosto solo quando cambiano gli
+input e deve essere ricalcolato.
 
 Sotto, il resto è diviso in quattro sezioni navigabili:
 
