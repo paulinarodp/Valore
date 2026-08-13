@@ -250,7 +250,7 @@ test("only the surtaxes change with the location: IRPEF and contributions are na
   assert.ok(surtaxes.size > 1, "le addizionali devono variare fra le località");
 });
 
-test("each supported location computes its own verified surtaxes", () => {
+test("each supported location computes its own documented surtaxes", () => {
   // Valori calcolati a mano su imponibile 41.772,60 (RAL 46.000).
   const expected: Record<string, { regional: number; municipal: number }> = {
     // Lombardia per scaglioni; Milano 0,8% oltre l'esenzione di 23.000.
@@ -301,13 +301,24 @@ test("an unknown location is rejected instead of silently falling back", () => {
   assert.throws(() => at(46_000, 13, "roma"), /Località non supportata/);
 });
 
-test("every location carries an official source for both surtaxes", () => {
+test("regional rates are verified for 2026 and municipal rates declare the 2025 assumption", () => {
   for (const location of rules.locations) {
+    assert.equal(location.regionalSurtax.source.year, 2026, location.id);
+    assert.equal(location.regionalSurtax.source.status, "verified", location.id);
+
+    assert.equal(location.municipalSurtax.source.year, 2025, location.id);
+    assert.equal(location.municipalSurtax.source.status, "assumption_documented", location.id);
+    assert.match(location.municipalSurtax.source.url, /anno=2025/, location.id);
+    assert.match(location.municipalSurtax.source.note ?? "", /non pubblica ancora dati comunali 2026/i);
+
     for (const surtax of [location.regionalSurtax, location.municipalSurtax]) {
       assert.match(surtax.source.url, /^https:\/\/www1\.finanze\.gov\.it\//, location.id);
       assert.ok(surtax.brackets.length > 0, location.id);
     }
   }
+
+  const municipalStep = at(46_000).steps.find((step) => step.id === "municipal-surtax");
+  assert.match(municipalStep?.note ?? "", /ultima delibera disponibile.*2025/i);
 });
 
 test("employer cost adds contributions and TFR on top of the gross salary", () => {
@@ -522,4 +533,3 @@ test("the upper bound keeps the calculation below the 200.000 euro sterilisation
   assert.equal(MAX_RAL, 200_000);
   assert.ok(at(MAX_RAL, 13).taxableIncome < 200_000);
 });
-

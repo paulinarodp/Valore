@@ -29,12 +29,15 @@ test("the page ships a working calculator in its server-rendered HTML", async ()
   assert.match(html, /Residenza fiscale/i);
   assert.match(html, /Mensilità/i);
   assert.match(html, /Figli a carico/i);
-  // Il calcolo è reattivo: non esiste un pulsante che faccia da cancello.
-  assert.doesNotMatch(html, /Calcola<\/button>|Premi Calcola/i);
+  // Il risultato resta reattivo, ma il flusso richiesto dalla traccia ha un comando esplicito.
+  assert.match(html, /<button[^>]+type="submit"[^>]+class="calculate-button"/i);
+  assert.match(html, /Calcola/i);
 
   // Gli output richiesti dalla traccia, già visibili al primo caricamento.
   assert.match(html, /Netto annuale/i);
   assert.match(html, /Netto per mensilità/i);
+  assert.match(html, /Imposte totali/i);
+  assert.match(html, /Contributi dipendente/i);
   assert.match(html, /Totale trattenute/i);
 
   // Il caso di default (RAL 46.000, 13 mensilità) con i valori attesi.
@@ -91,6 +94,9 @@ test("assumptions, limits and sources are stated on the page", async () => {
   assert.match(html, /Non incluso/i);
   assert.match(html, /Fonti/i);
   assert.match(html, /gazzettaufficiale|mef\.gov\.it|inps\.it|regione\.lombardia\.it|comune\.milano\.it/i);
+  assert.match(html, /ultima delibera[^<]*2025|delibera MEF disponibile 2025/i);
+  assert.match(html, /assunzione documentata/i);
+  assert.doesNotMatch(html, /brocardi\.it/i);
   assert.match(html, /non sostituisce il cedolino/i);
 });
 

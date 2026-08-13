@@ -154,7 +154,10 @@ export function calculateSalary(
       formula: municipal.formula,
       source: location.municipalSurtax.source,
       detail: municipal.detail,
-      note: municipalExemptionNote(location),
+      note: [
+        location.municipalSurtax.source.note,
+        municipalExemptionNote(location),
+      ].filter(Boolean).join(" "),
     },
   );
 

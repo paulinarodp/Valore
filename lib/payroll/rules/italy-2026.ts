@@ -10,21 +10,25 @@ import type { Location, PayrollRuleset } from "../types.ts";
 const mefRegion = (code: number, region: string) => ({
   name: `MEF, addizionale regionale IRPEF ${region} 2026`,
   url: `https://www1.finanze.gov.it/finanze2/dipartimentopolitichefiscali/fiscalitalocale/addregirpef/addregirpef.php?reg=${code}`,
+  year: 2026,
+  status: "verified" as const,
 });
 
 const mefMunicipality = (province: string, cadastralCode: string, municipality: string) => ({
-  name: `MEF, delibera addizionale comunale IRPEF di ${municipality}`,
-  url: `https://www1.finanze.gov.it/finanze2/dipartimentopolitichefiscali/fiscalitalocale/nuova_addcomirpef/risultato.htm?anno=9999&cm=&pr=${province}&cc=${cadastralCode}&r=1`,
+  name: `MEF, addizionale comunale IRPEF di ${municipality}, ultima delibera disponibile 2025`,
+  url: `https://www1.finanze.gov.it/finanze2/dipartimentopolitichefiscali/fiscalitalocale/nuova_addcomirpef/risultato.htm?anno=2025&cm=&pr=${province}&cc=${cadastralCode}&r=1`,
+  year: 2025,
+  status: "assumption_documented" as const,
+  note: `Il portale MEF non pubblica ancora dati comunali 2026 per ${municipality}. Il prototipo usa esplicitamente l'ultima delibera disponibile, relativa al 2025, come assunzione.`,
 });
 
 /**
  * Località supportate.
  *
  * Ne compaiono cinque e non venti: sono quelle per cui il portale MEF pubblica
- * sia le aliquote regionali 2026 sia la delibera comunale vigente. Roma, Napoli,
- * Bologna e Genova restano fuori perché Lazio, Campania, Emilia-Romagna e
- * Liguria non hanno ancora pubblicato le aliquote regionali 2026: usare quelle
- * dell'anno precedente darebbe un numero verosimile ma non verificabile.
+ * le aliquote regionali 2026. Per la componente comunale il portale non espone
+ * ancora dati 2026: il prototipo usa la delibera 2025 come assunzione esplicita,
+ * versionata e visibile all'utente, mai come fallback silenzioso.
  */
 const LOCATIONS: Location[] = [
   {
@@ -45,7 +49,7 @@ const LOCATIONS: Location[] = [
       source: mefRegion(10, "Lombardia"),
     },
     municipalSurtax: {
-      id: "MILANO_2026",
+      id: "MILANO_2025_ASSUMPTION",
       label: "Addizionale comunale Milano",
       application: "flatAboveThreshold",
       exemptionThreshold: 23_000,
@@ -72,7 +76,7 @@ const LOCATIONS: Location[] = [
     },
     /** Unico comune del gruppo con aliquote comunali per scaglioni. */
     municipalSurtax: {
-      id: "TORINO_2026",
+      id: "TORINO_2025_ASSUMPTION",
       label: "Addizionale comunale Torino",
       application: "progressive",
       exemptionThreshold: 11_790,
@@ -103,7 +107,7 @@ const LOCATIONS: Location[] = [
       source: mefRegion(17, "Toscana"),
     },
     municipalSurtax: {
-      id: "FIRENZE_2026",
+      id: "FIRENZE_2025_ASSUMPTION",
       label: "Addizionale comunale Firenze",
       application: "flatAboveThreshold",
       exemptionThreshold: 25_000,
@@ -125,7 +129,7 @@ const LOCATIONS: Location[] = [
       source: mefRegion(21, "Veneto"),
     },
     municipalSurtax: {
-      id: "VENEZIA_2026",
+      id: "VENEZIA_2025_ASSUMPTION",
       label: "Addizionale comunale Venezia",
       application: "flatAboveThreshold",
       exemptionThreshold: 10_000,
@@ -151,7 +155,7 @@ const LOCATIONS: Location[] = [
       source: mefRegion(14, "Puglia"),
     },
     municipalSurtax: {
-      id: "BARI_2026",
+      id: "BARI_2025_ASSUMPTION",
       label: "Addizionale comunale Bari",
       application: "flatAboveThreshold",
       exemptionThreshold: 15_000,
@@ -164,8 +168,8 @@ const LOCATIONS: Location[] = [
 /**
  * Regole fiscali e contributive usate dal calcolatore, anno d'imposta 2026.
  *
- * Ogni valore qui dentro è stato verificato su una fonte ufficiale, indicata
- * accanto alla regola. Il motore di calcolo non contiene numeri hardcoded:
+ * Ogni valore qui dentro ha una fonte e uno stato esplicito: verificato oppure
+ * assunzione documentata. Il motore di calcolo non contiene numeri hardcoded:
  * legge tutto da questo file, così aggiornare un'aliquota o aggiungere un
  * comune è una modifica dichiarativa e non tocca la logica.
  */
@@ -189,7 +193,7 @@ export const ITALY_2026: PayrollRuleset = {
   },
   employmentDeductionSource: {
     name: "Art. 13 TUIR e L. 207/2024, art. 1 co. 4-9",
-    url: "https://www.brocardi.it/testo-unico-imposte-redditi/titolo-i/capo-i/art13.html",
+    url: "https://www.normattiva.it/uri-res/N2Ls?urn:nir:presidente.repubblica:decreto:1986-12-22;917",
   },
 
   contributions: {

@@ -5,6 +5,11 @@ export type PayPeriods = 12 | 13 | 14;
 export type RuleSource = {
   name: string;
   url: string;
+  /** Anno del dato consultato, quando la fonte pubblica serie annuali. */
+  year?: number;
+  /** Distingue una regola verificata da una semplificazione dichiarata. */
+  status?: "verified" | "assumption_documented";
+  note?: string;
 };
 
 /** Scaglione di un'imposta progressiva: `upTo: null` indica l'ultimo scaglione. */

@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { BadgeEuro, ChevronDown, ExternalLink, ShieldCheck } from "lucide-react";
+import { type FormEvent, useMemo, useState } from "react";
+import { BadgeEuro, Calculator, ChevronDown, ExternalLink, ShieldCheck } from "lucide-react";
 
 import { calculateSalary } from "@/lib/payroll/calculateSalary.ts";
 import { compareCompensationLevers, findRaiseTrap } from "@/lib/payroll/levers.ts";
@@ -82,6 +82,13 @@ export default function Home() {
     }
   }
 
+  function handleCalculate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!isValid) return;
+    setAppliedRal(parsedRal);
+    setRalInput(groupThousands(String(parsedRal)));
+  }
+
   return (
     <main className="page">
       <header className="masthead">
@@ -103,12 +110,12 @@ export default function Home() {
           <ShieldCheck size={17} aria-hidden="true" />
           <span>
             Anno d&apos;imposta {ITALY_2026.taxYear}
-            <small>Regole verificate · {ITALY_2026.id}</small>
+            <small>{ITALY_2026.id} · assunzioni dichiarate</small>
           </span>
         </span>
       </header>
 
-      <form className="card calculator" onSubmit={(event) => event.preventDefault()}>
+      <form className="card calculator" onSubmit={handleCalculate}>
         <div className="inputs">
           <div className="field">
             <label htmlFor="ral">Retribuzione annua lorda</label>
@@ -172,8 +179,16 @@ export default function Home() {
           </div>
         </div>
 
+        <div className="calculator-actions">
+          <button type="submit" className="calculate-button" disabled={!isValid}>
+            <Calculator size={17} aria-hidden="true" />
+            Calcola
+          </button>
+          <span>Il risultato si aggiorna anche mentre modifichi gli input.</span>
+        </div>
+
         <p className="profile">
-          <strong>Profilo:</strong> dipendente del settore privato, contratto a tempo
+          <strong>Profilo contributivo standard FPLD:</strong> dipendente del settore privato, contratto a tempo
           indeterminato full-time per tutto l&apos;anno, nessuna agevolazione o detrazione oltre a
           quelle spettanti a tutti i lavoratori dipendenti.
         </p>
@@ -238,7 +253,8 @@ export default function Home() {
       </div>
 
       <footer className="colophon">
-        <span>Regole {result.rulesetId}, verificate il {formatDate(result.verifiedAt)}.</span>
+        <span>Regole nazionali e regionali {result.rulesetId}, verificate il {formatDate(result.verifiedAt)}.</span>
+        <span>Addizionali comunali: ultima delibera MEF disponibile 2025, usata come assunzione documentata.</span>
         <span>Stima indicativa: non sostituisce il cedolino né il conguaglio di fine anno.</span>
       </footer>
     </main>
@@ -304,9 +320,14 @@ function Result({ result }: { result: SalaryResult }) {
             <span className="figure-note">× {result.payPeriods} mensilità</span>
           </div>
           <div className="figure">
-            <span className="figure-label">Totale trattenute</span>
-            <strong>{shortMoney(result.totalWithheld)}</strong>
-            <span className="figure-note">{percent(result.withheldRate / 100)} della RAL</span>
+            <span className="figure-label">Imposte totali</span>
+            <strong>{shortMoney(result.totalTaxes)}</strong>
+            <span className="figure-note">IRPEF netta + addizionali</span>
+          </div>
+          <div className="figure">
+            <span className="figure-label">Contributi dipendente</span>
+            <strong>{shortMoney(result.contributions)}</strong>
+            <span className="figure-note">Profilo standard FPLD</span>
           </div>
         </div>
 
@@ -323,6 +344,11 @@ function Result({ result }: { result: SalaryResult }) {
             <LegendItem tone="irpef" label="IRPEF netta" value={result.netIrpef} />
             <LegendItem tone="surtax" label="Addizionali" value={surtaxes} />
           </ul>
+          <p className="withheld-summary">
+            <span>Totale trattenute</span>
+            <strong>{shortMoney(result.totalWithheld)}</strong>
+            <span>{percent(result.withheldRate / 100)} della RAL</span>
+          </p>
         </div>
 
       </section>
@@ -784,6 +810,11 @@ function Assumptions() {
           esplicito, non approssimato.
         </p>
       </div>
+      <p className="scope-callout municipal-assumption">
+        Le addizionali regionali usano i dati MEF 2026. Per le addizionali comunali il portale
+        non pubblica ancora dati 2026: il prototipo usa esplicitamente l&apos;ultima delibera
+        disponibile, relativa al 2025, come assunzione documentata.
+      </p>
       <div className="scope-columns">
         <div>
           <h3 className="scope-heading included">Incluso</h3>

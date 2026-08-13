@@ -2,17 +2,16 @@
 
 Prototipo per il take-home Jet HR, posizione Product Builder Cost-Saving.
 
-Una pagina web: inserisci una RAL e scegli la residenza fiscale, e vedi subito il netto annuale,
-il netto per mensilità e tutte le voci trattenute dal lordo, ciascuna con la formula applicata e
-il link alla fonte ufficiale.
+Una pagina web: inserisci una RAL, scegli la residenza fiscale e premi **Calcola** per vedere il
+netto annuale, il netto per mensilità e tutte le voci trattenute dal lordo, ciascuna con la
+formula applicata e il link alla fonte.
 
 Poi la domanda che interessa a un'azienda: quanto costa quel netto, e qual è il modo meno caro di
 aumentarlo.
 
-Il calcolo è reattivo, senza pulsante. La traccia parlava di un pulsante "calcola", ma con tre
-controlli su quattro che aggiornano da soli il pulsante diventava un cancello davanti a un
-risultato già pronto, e un valore incompleto mentre si scrive non azzera la pagina: resta
-l'ultimo risultato valido con l'avviso accanto.
+Il risultato si aggiorna anche mentre si modificano gli input; il pulsante **Calcola** conferma
+esplicitamente il valore inserito e mantiene il flusso richiesto dalla traccia. Un valore
+incompleto mentre si scrive non azzera la pagina: resta l'ultimo risultato valido con l'avviso.
 
 ```bash
 npm install
@@ -42,16 +41,19 @@ perché è l'unico input che cambia davvero il risultato oltre alla RAL, e perch
 la struttura del ruleset invece di lasciarla un'affermazione.
 
 Sono supportate **Milano, Torino, Firenze, Venezia e Bari**: le località per cui il portale del
-Dipartimento delle Finanze pubblica sia le aliquote regionali 2026 sia la delibera comunale
-vigente. Roma, Napoli, Bologna e Genova restano fuori perché Lazio, Campania, Emilia-Romagna e
-Liguria non hanno ancora pubblicato le aliquote regionali 2026: ripiegare su quelle dell'anno
-prima darebbe un numero verosimile ma non verificabile, e un comune sbagliato in silenzio è
-peggio di un comune assente.
+Dipartimento delle Finanze pubblica le aliquote regionali 2026. Per la componente comunale il
+portale non pubblica ancora dati 2026: il prototipo usa esplicitamente l'ultima delibera
+disponibile, relativa al 2025, come **assunzione documentata**. La fonte è fissata all'anno 2025
+nel ruleset e la semplificazione è mostrata nella pagina e nel dettaglio del calcolo.
 
-Le cinque coprono comunque i casi strutturalmente diversi: aliquote regionali per scaglioni
+Roma, Napoli, Bologna e Genova restano fuori perché le rispettive aliquote regionali 2026 non
+erano disponibili nella fonte MEF al momento della verifica. Non viene applicato alcun fallback
+regionale silenzioso.
+
+Le cinque coprono casi strutturalmente diversi: aliquote regionali 2026 per scaglioni
 (Lombardia, Piemonte, Toscana, Puglia) e ad aliquota unica (Veneto); addizionali comunali ad
-aliquota unica (Milano, Firenze, Venezia, Bari) e per scaglioni (Torino); soglie di esenzione da
-10.000 € (Venezia) a 25.000 € (Firenze).
+aliquota unica (Milano, Firenze, Venezia, Bari) e per scaglioni (Torino), tutte basate sull'ultima
+delibera MEF disponibile 2025; soglie di esenzione da 10.000 € a 25.000 €.
 
 I due limiti di RAL non sono arbitrari, ed è la ragione per cui ho scelto di fissarli:
 
@@ -263,12 +265,16 @@ esattamente al netto.
 
 ## Cosa non fa, e perché
 
-Fuori perimetro per scelta: familiari a carico, altre detrazioni e oneri deducibili; regimi
-agevolati (impatriati, apprendistato, dirigenti); differenze contributive fra CCNL, qualifiche o
-fondi specifici; TFR, bonus, fringe benefit, previdenza complementare; anni parziali, part-time,
-più datori di lavoro.
+Fuori dal calcolo RAL → netto standard per scelta: familiari a carico, altre detrazioni e oneri
+deducibili; regimi agevolati (impatriati, apprendistato, dirigenti); differenze contributive fra
+CCNL, qualifiche o fondi specifici; bonus, fringe benefit e previdenza complementare come
+componenti della retribuzione ordinaria; anni parziali, part-time e più datori di lavoro.
 
-Due approssimazioni note, dichiarate anche in pagina:
+Il TFR e il confronto fra leve retributive compaiono soltanto nelle viste secondarie dedicate al
+lato azienda. Non modificano il risultato del calcolo RAL → netto e dichiarano ipotesi e limiti
+separatamente.
+
+Quattro approssimazioni note, dichiarate anche in pagina:
 
 - l'1% aggiuntivo INPS oltre la prima fascia pensionabile è calcolato sulla RAL annua, mentre in
   busta paga si applica mese per mese: con retribuzioni non uniformi il risultato può scostarsi
@@ -277,6 +283,8 @@ Due approssimazioni note, dichiarate anche in pagina:
   (NASpI, malattia, maternità, fondi minori) cambia per settore, dimensione e CCNL. L'INAIL è
   escluso del tutto: varia dallo 0,4% al 6% secondo la classe di rischio, e senza sapere la
   lavorazione qualsiasi numero sarebbe inventato;
+- le addizionali comunali usano l'ultima delibera MEF disponibile 2025 come assunzione per la
+  proiezione 2026; le addizionali regionali restano invece basate sui dati ufficiali 2026;
 - il risultato è una proiezione annuale, non un cedolino. Le addizionali si versano a rate
   nell'anno successivo, quindi le singole buste paga non corrispondono al netto annuale diviso
   per le mensilità.
@@ -286,7 +294,7 @@ Due approssimazioni note, dichiarate anche in pagina:
 | Regola | Fonte |
 | --- | --- |
 | Aliquote IRPEF 2026 (23% / 33% / 43%) | [L. 199/2025, legge di bilancio 2026](https://www.mef.gov.it/focus/Principali-misure-della-legge-di-bilancio-2026/) |
-| Detrazioni lavoro dipendente | [Art. 13 TUIR](https://www.brocardi.it/testo-unico-imposte-redditi/titolo-i/capo-i/art13.html) |
+| Detrazioni lavoro dipendente | [D.P.R. 917/1986, art. 13, Normattiva](https://www.normattiva.it/uri-res/N2Ls?urn:nir:presidente.repubblica:decreto:1986-12-22;917) |
 | Taglio del cuneo fiscale | L. 207/2024, art. 1 co. 4-9 |
 | Aliquota IVS a carico del lavoratore (9,19%) | [INPS](https://www.inps.it/it/it/inps-comunica/atti/circolari-messaggi-e-normativa/dettaglio.circolari-e-messaggi.2023.02.circolare-numero-24-del-20-02-2023_14085.html) |
 | Prima fascia pensionabile 2026 (56.224 €) | [INPS, circolare n. 6 del 30/01/2026](https://www.inps.it/it/it/inps-comunica/atti/circolari-messaggi-e-normativa/dettaglio.circolari-e-messaggi.2026.01.circolare-numero-6-del-30-01-2026_15151.html) |
@@ -294,13 +302,13 @@ Due approssimazioni note, dichiarate anche in pagina:
 | Premi di risultato, imposta sostitutiva 1% (2026-2027) | [L. 199/2025](https://www.mef.gov.it/focus/Principali-misure-della-legge-di-bilancio-2026/) |
 | Fringe benefit, soglie 1.000 / 2.000 € (2025-2027) | [L. 207/2024, art. 1 co. 390-391](https://www.mef.gov.it/focus/Principali-misure-della-legge-di-bilancio-2026/) |
 | Addizionali regionali 2026 | [MEF, Dipartimento delle Finanze](https://www1.finanze.gov.it/finanze2/dipartimentopolitichefiscali/fiscalitalocale/addregirpef/addregirpef.php?reg=10) (una pagina per regione) |
-| Delibere comunali vigenti | [MEF, addizionale comunale all'IRPEF](https://www1.finanze.gov.it/finanze2/dipartimentopolitichefiscali/fiscalitalocale/nuova_addcomirpef/sceltaregione.htm) (una interrogazione per comune) |
+| Addizionali comunali, ultima delibera disponibile 2025 | [MEF, addizionale comunale all'IRPEF](https://www1.finanze.gov.it/finanze2/dipartimentopolitichefiscali/fiscalitalocale/nuova_addcomirpef/sceltaregione.htm) (assunzione documentata, una interrogazione per comune) |
 
 Per le addizionali locali la fonte è sempre il portale del Dipartimento delle Finanze, non il sito
 del singolo ente: è l'unico punto in cui la delibera diventa efficace, e ogni link in pagina punta
 alla singola interrogazione, così il valore è verificabile in un clic.
 
-| Località | Addizionale regionale | Addizionale comunale |
+| Località | Addizionale regionale 2026 | Addizionale comunale 2025, assunzione |
 | --- | --- | --- |
 | Milano, Lombardia | 1,23 / 1,58 / 1,72 / 1,73% per scaglioni | 0,8% unica, esenzione 23.000 € |
 | Torino, Piemonte | 1,62 / 2,68 / 3,31 / 3,33% per scaglioni | 0,8 / 0,8 / 1,1 / 1,2% per scaglioni, esenzione 11.790 € |
