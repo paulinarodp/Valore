@@ -49,6 +49,7 @@ export default function Home() {
   const [locationId, setLocationId] = useState(DEFAULT_LOCATION_ID);
   const [hasChildren, setHasChildren] = useState(false);
   const [section, setSection] = useState<SectionId>("calcolo");
+  const [hasCalculated, setHasCalculated] = useState(false);
   /** Ultima RAL valida: regge il risultato mentre si sta ancora scrivendo. */
   const [appliedRal, setAppliedRal] = useState(DEFAULT_RAL);
   const [targetInput, setTargetInput] = useState(() => groupThousands(String(DEFAULT_TARGET_NET)));
@@ -70,8 +71,19 @@ export default function Home() {
 
   function handleRal(value: string) {
     setRalInput(value);
+    setHasCalculated(false);
     const next = parseRal(value);
     if (Number.isFinite(next) && next >= MIN_RAL && next <= MAX_RAL) setAppliedRal(next);
+  }
+
+  function handleLocation(value: string) {
+    setLocationId(value);
+    setHasCalculated(false);
+  }
+
+  function handlePayPeriods(value: PayPeriods) {
+    setPayPeriods(value);
+    setHasCalculated(false);
   }
 
   function handleTarget(value: string) {
@@ -87,6 +99,7 @@ export default function Home() {
     if (!isValid) return;
     setAppliedRal(parsedRal);
     setRalInput(groupThousands(String(parsedRal)));
+    setHasCalculated(true);
   }
 
   return (
@@ -147,7 +160,7 @@ export default function Home() {
               <select
                 id="location"
                 value={locationId}
-                onChange={(event) => setLocationId(event.target.value)}
+                onChange={(event) => handleLocation(event.target.value)}
               >
                 {ITALY_2026.locations.map((location) => (
                   <option key={location.id} value={location.id}>
@@ -169,7 +182,7 @@ export default function Home() {
                   type="button"
                   className={payPeriods === value ? "selected" : ""}
                   aria-pressed={payPeriods === value}
-                  onClick={() => setPayPeriods(value)}
+                  onClick={() => handlePayPeriods(value)}
                 >
                   {value}
                 </button>
@@ -184,7 +197,7 @@ export default function Home() {
             <Calculator size={17} aria-hidden="true" />
             Calcola
           </button>
-          <span>Il risultato si aggiorna anche mentre modifichi gli input.</span>
+          <span>Inserisci i dati e premi Calcola per vedere il risultato.</span>
         </div>
 
         <p className="profile">
@@ -194,69 +207,71 @@ export default function Home() {
         </p>
       </form>
 
-      <Result result={result} />
+      <div className="calculation-output" hidden={!hasCalculated}>
+        <Result result={result} />
 
-      <SectionNav active={section} onChange={setSection} />
+        <SectionNav active={section} onChange={setSection} />
 
-      <div
-        className="panel"
-        id="panel-calcolo"
-        role="tabpanel"
-        aria-labelledby="tab-calcolo"
-        hidden={section !== "calcolo"}
-      >
-        <div className="split">
-          <Ledger result={result} />
-          <EmployerCost result={result} />
+        <div
+          className="panel"
+          id="panel-calcolo"
+          role="tabpanel"
+          aria-labelledby="tab-calcolo"
+          hidden={section !== "calcolo"}
+        >
+          <div className="split">
+            <Ledger result={result} />
+            <EmployerCost result={result} />
+          </div>
         </div>
-      </div>
 
-      <div
-        className="panel"
-        id="panel-leve"
-        role="tabpanel"
-        aria-labelledby="tab-leve"
-        hidden={section !== "leve"}
-      >
-        <CompensationLevers
-          result={result}
-          hasChildren={hasChildren}
-          onChildrenChange={setHasChildren}
-          targetNet={appliedTarget}
-          targetInput={targetInput}
-          onTargetChange={handleTarget}
-          onTargetBlur={() => setTargetInput(groupThousands(String(appliedTarget)))}
-        />
-      </div>
-
-      <div
-        className="panel"
-        id="panel-localita"
-        role="tabpanel"
-        aria-labelledby="tab-localita"
-        hidden={section !== "localita"}
-      >
-        <LocationComparison result={result} onSelect={setLocationId} />
-      </div>
-
-      <div
-        className="panel"
-        id="panel-perimetro"
-        role="tabpanel"
-        aria-labelledby="tab-perimetro"
-        hidden={section !== "perimetro"}
-      >
-        <div className="split">
-          <Assumptions />
-          <Sources />
+        <div
+          className="panel"
+          id="panel-leve"
+          role="tabpanel"
+          aria-labelledby="tab-leve"
+          hidden={section !== "leve"}
+        >
+          <CompensationLevers
+            result={result}
+            hasChildren={hasChildren}
+            onChildrenChange={setHasChildren}
+            targetNet={appliedTarget}
+            targetInput={targetInput}
+            onTargetChange={handleTarget}
+            onTargetBlur={() => setTargetInput(groupThousands(String(appliedTarget)))}
+          />
         </div>
-      </div>
 
-      <footer className="colophon">
-        <span>Regole nazionali e regionali {result.rulesetId}, verificate il {formatDate(result.verifiedAt)}.</span>
-        <span>Addizionali comunali: ultima delibera MEF disponibile 2025, usata come assunzione documentata.</span>
-        <span>Stima indicativa: non sostituisce il cedolino né il conguaglio di fine anno.</span>
-      </footer>
+        <div
+          className="panel"
+          id="panel-localita"
+          role="tabpanel"
+          aria-labelledby="tab-localita"
+          hidden={section !== "localita"}
+        >
+          <LocationComparison result={result} onSelect={handleLocation} />
+        </div>
+
+        <div
+          className="panel"
+          id="panel-perimetro"
+          role="tabpanel"
+          aria-labelledby="tab-perimetro"
+          hidden={section !== "perimetro"}
+        >
+          <div className="split">
+            <Assumptions />
+            <Sources />
+          </div>
+        </div>
+
+        <footer className="colophon">
+          <span>Regole nazionali e regionali {result.rulesetId}, verificate il {formatDate(result.verifiedAt)}.</span>
+          <span>Addizionali comunali: ultima delibera MEF disponibile 2025, usata come assunzione documentata.</span>
+          <span>Stima indicativa: non sostituisce il cedolino né il conguaglio di fine anno.</span>
+        </footer>
+      </div>
     </main>
   );
 }

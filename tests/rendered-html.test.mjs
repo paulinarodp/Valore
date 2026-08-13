@@ -29,11 +29,12 @@ test("the page ships a working calculator in its server-rendered HTML", async ()
   assert.match(html, /Residenza fiscale/i);
   assert.match(html, /Mensilità/i);
   assert.match(html, /Figli a carico/i);
-  // Il risultato resta reattivo, ma il flusso richiesto dalla traccia ha un comando esplicito.
+  // Il flusso richiesto dalla traccia ha un comando esplicito.
   assert.match(html, /<button[^>]+type="submit"[^>]+class="calculate-button"/i);
   assert.match(html, /Calcola/i);
 
-  // Gli output richiesti dalla traccia, già visibili al primo caricamento.
+  // Gli output richiesti sono pronti, ma restano nascosti fino al submit.
+  assert.match(html, /class="calculation-output"[^>]+hidden/i);
   assert.match(html, /Netto annuale/i);
   assert.match(html, /Netto per mensilità/i);
   assert.match(html, /Imposte totali/i);
@@ -80,9 +81,10 @@ test("the page is organised in navigable sections, all present in the HTML", asy
   assert.match(html, /id="panel-calcolo"(?![^>]*hidden)/);
   assert.match(html, /id="panel-leve"[^>]*hidden/);
 
-  // Input e risultato restano fuori dalle sezioni, sempre visibili.
+  // Input e risultato restano fuori dalle sezioni; il risultato parte nascosto.
   const beforeTabs = html.slice(0, html.indexOf('role="tablist"'));
   assert.match(beforeTabs, /<input[^>]+id="ral"/);
+  assert.match(beforeTabs, /class="calculation-output"[^>]+hidden/i);
   assert.match(beforeTabs, /Netto annuale/);
   assert.match(beforeTabs, /30\.541/);
 });
