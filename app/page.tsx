@@ -407,11 +407,16 @@ function EmployerCost({ result }: { result: SalaryResult }) {
           <span className="figure-note">RAL, contributi datore e TFR</span>
         </div>
         <div className="figure">
-          <span className="figure-label">Netto al dipendente</span>
-          <strong className="accent-net">{shortMoney(result.annualNet)}</strong>
+          <span className="figure-label">Netto dalla RAL</span>
+          <strong className="accent-net">{shortMoney(netFromGross)}</strong>
           <span className="figure-note">
-            {percent(result.annualNet / result.employerCost)} del costo
+            {percent(netFromGross / result.employerCost)} del costo
           </span>
+          {result.taxFreeBonus > 0 ? (
+            <span className="figure-note">
+              + {shortMoney(result.taxFreeBonus)} di somma esente inclusa nel netto annuale, fuori RAL
+            </span>
+          ) : null}
         </div>
         <div className="figure">
           <span className="figure-label">Cuneo fiscale e contributivo</span>
@@ -433,7 +438,7 @@ function EmployerCost({ result }: { result: SalaryResult }) {
 
       <p className="employer-note">
         Su ogni <strong>100 €</strong> spesi dall&apos;azienda ne arrivano netti{" "}
-        <strong>{Math.round((result.annualNet / result.employerCost) * 100)} €</strong>. Il TFR
+        <strong>{Math.round((netFromGross / result.employerCost) * 100)} € dalla RAL</strong>. Il TFR
         resta del dipendente come retribuzione differita e non è incluso nel cuneo fiscale e
         contributivo. L&apos;INAIL è escluso: varia dallo 0,4% al 6%
         secondo la lavorazione, e senza saperla ogni numero sarebbe inventato.

@@ -163,11 +163,12 @@ test("the employer side of the same salary is shown", async () => {
 
   assert.match(html, /Quanto costa all&#x27;azienda|Quanto costa all'azienda/i);
   assert.match(html, /Costo aziendale/i);
+  assert.match(html, /Netto dalla RAL/i);
   assert.match(html, /Cuneo fiscale e contributivo/i);
   assert.match(html, /TFR escluso/i);
   assert.match(html, /TFR accantonato/i);
-  // RAL 46.000 + 30% contributi datore + 7,41% TFR = 63.209 €.
-  assert.match(html, /63\.209/);
+  // RAL 46.000 + 30% contributi datore + TFR esatto (RAL / 13,5) = 63.207 €.
+  assert.match(html, /63\.207/);
   // L'INAIL è escluso di proposito, e la pagina lo dice.
   assert.match(html, /INAIL/);
 });
@@ -196,7 +197,9 @@ test("the three compensation levers are compared with their constraints", async 
   assert.match(html, /accordo collettivo di secondo livello/i);
   assert.match(html, /5\.000\s€/);
   assert.match(html, /superata la soglia anche di un euro/i);
-  assert.match(html, /beni e servizi, non denaro/i);
+  assert.match(html, /beni, servizi e, nei casi previsti dalla norma, somme o rimborsi/i);
+  assert.match(html, /Non è un aumento di RAL/i);
+  assert.doesNotMatch(html, /beni e servizi, non denaro/i);
   assert.match(html, /usato solo per determinare la soglia[^<]*fringe benefit/i);
   assert.doesNotMatch(html, /I figli a carico non cambiano il netto/i);
 });

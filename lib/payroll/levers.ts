@@ -223,7 +223,7 @@ export function compareCompensationLevers(
     employerCost: fringeNet,
     netDelivered: fringeNet,
     efficiency: 100,
-    constraint: `Esente entro ${shortMoney(fringeCap)} l'anno: superata la soglia anche di un euro, l'intero valore diventa imponibile. Sono beni e servizi, non denaro.`,
+    constraint: `Esente entro ${shortMoney(fringeCap)} l'anno: superata la soglia anche di un euro, l'intero valore diventa imponibile. Può comprendere beni, servizi e, nei casi previsti dalla norma, somme o rimborsi per specifiche spese. Non è un aumento di RAL.`,
     source: fringeBenefit.source,
   };
 

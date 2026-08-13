@@ -227,7 +227,7 @@ export const ITALY_2026: PayrollRuleset = {
     contributionRate: 0.30,
     ivsRate: 0.2381,
     // Quota TFR maturata nell'anno: retribuzione / 13,5.
-    tfrRate: 0.0741,
+    tfrRate: 1 / 13.5,
     source: {
       name: "INPS, aliquote contributive datore di lavoro (FPLD, industria e commercio)",
       url: "https://www.inps.it/it/it/inps-comunica/atti/circolari-messaggi-e-normativa/dettaglio.circolari-e-messaggi.2023.02.circolare-numero-24-del-20-02-2023_14085.html",

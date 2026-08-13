@@ -323,11 +323,12 @@ test("regional rates are verified for 2026 and municipal rates declare the 2025 
 
 test("employer cost adds contributions and TFR on top of the gross salary", () => {
   const result = at(46_000);
+  const expectedTfr = Math.round((46_000 / 13.5) * 100) / 100;
 
-  // 46.000 × 30% = 13.800; 46.000 × 7,41% = 3.408,60.
+  // 46.000 × 30% = 13.800; il TFR è esattamente retribuzione / 13,5.
   assert.equal(result.employerContributions, 13_800);
-  assert.equal(result.tfr, 3_408.6);
-  assert.equal(result.employerCost, 63_208.6);
+  assert.equal(result.tfr, expectedTfr);
+  assert.equal(result.employerCost, 46_000 + 13_800 + expectedTfr);
 
   // Il cuneo contiene solo imposte e contributi: il TFR è retribuzione differita.
   const expectedWedge = result.employerContributions + result.contributions + result.totalTaxes;
@@ -341,6 +342,19 @@ test("employer cost adds contributions and TFR on top of the gross salary", () =
     result.employerCost,
   );
   assert.ok(result.taxWedgeRate > 40 && result.taxWedgeRate < 60);
+});
+
+test("employer cost keeps the tax-free sum outside the RAL composition", () => {
+  const result = at(20_000);
+  const netFromGross = result.annualNet - result.taxFreeBonus;
+
+  assert.ok(result.taxFreeBonus > 0);
+  assert.ok(result.annualNet > netFromGross);
+  assert.ok(
+    Math.abs(
+      netFromGross + result.taxAndContributionWedge + result.tfr - result.employerCost
+    ) < 0.01,
+  );
 });
 
 test("the gross-up search finds the RAL increase that delivers the target net", () => {
